@@ -1,0 +1,70 @@
+on: ["push", "pull_request"]
+
+name: Test
+
+concurrency:
+  # Cancel older, in-progress jobs from the same PR, same workflow.
+  # use run_id if the job is triggered by a push to ensure
+  # push-triggered jobs to not get canceled.
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+    linting:
+        runs-on: ubuntu-latest
+
+        steps:
+        - uses: actions/checkout@v5
+
+        - uses: astral-sh/setup-uv@v6
+          with:
+            # NOTE: Use minimum supported Python version to avoid using new syntax
+            python-version: "3.11"
+
+        - name: Run Ruff Lint
+          run: uv run --group lint ruff check .
+
+        - name: Run Ruff Format
+          run: uv run --group lint ruff format --check .
+
+        - name: Run mdformat
+          run: uv run --group lint mdformat README.md --check
+
+    type-check:
+        runs-on: ubuntu-latest
+
+        steps:
+        - uses: actions/checkout@v5
+
+        - uses: astral-sh/setup-uv@v6
+          with:
+            # NOTE: Use minimum supported Python version to avoid using new syntax
+            python-version: "3.11"
+
+        - name: Run MyPy
+          run: uv run --group lint --group test mypy .
+
+    functional:
+        runs-on: ${{ matrix.os }}
+
+        strategy:
+            matrix:
+                os: [ubuntu-latest, macos-latest] # TODO: support windows-latest?
+                python-version: ["3.11", "3.12", "3.13", "3.14"]
+
+        env:
+          GITHUB_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        steps:
+        - uses: actions/checkout@v5
+          with:
+            fetch-depth: 0
+
+        - uses: foundry-rs/foundry-toolchain@v1
+
+        - uses: astral-sh/setup-uv@v6
+          with:
+            python-version: ${{ matrix.python-version }}
+
+        - name: Run Tests
+          run: uv run --group test ape test -m "not fuzzing" -s

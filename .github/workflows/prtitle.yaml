@@ -1,0 +1,17 @@
+name: PR Title
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+
+jobs:
+    pr-title:
+        runs-on: ubuntu-latest
+
+        steps:
+        - uses: astral-sh/setup-uv@v6
+        - name: Check PR Title
+          run: uvx commitlint "${{ github.event.pull_request.title }}"
