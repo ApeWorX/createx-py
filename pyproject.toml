@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.scripts]
-createx = "createx._cli:cli"
+createx = "createx.__main__:cli"
 
 [dependency-groups]
 lint = [
