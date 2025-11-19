@@ -189,7 +189,9 @@ class CreateX(ManagerAccessMixin):
                         redeploy_protection=redeploy_protection,
                     ),
                     keccak(  # initcode hash
-                        Contract.constructor.serialize_transaction(*constructor_args).data
+                        Contract.constructor.serialize_transaction(
+                            *constructor_args
+                        ).data
                     ),
                 ]
 
@@ -217,11 +219,17 @@ class CreateX(ManagerAccessMixin):
                 if salt is not None:
                     raise RuntimeError("`salt=` is not supported for CREATE")
 
-                if init_args or deployment_payable_value or initialization_payable_value:
+                if (
+                    init_args
+                    or deployment_payable_value
+                    or initialization_payable_value
+                ):
                     deployment_fn = self.contract.deployCreateAndInit
                     args = [
                         # Initcode for contract
-                        Contract.constructor.serialize_transaction(*constructor_args).data,
+                        Contract.constructor.serialize_transaction(
+                            *constructor_args
+                        ).data,
                         # Post-deploy init args for contract
                         init_args or b"",
                         # Payable values to use for deployment and initialization
@@ -232,15 +240,23 @@ class CreateX(ManagerAccessMixin):
                     deployment_fn = self.contract.deployCreate
                     args = [
                         # Initcode for contract
-                        Contract.constructor.serialize_transaction(*constructor_args).data,
+                        Contract.constructor.serialize_transaction(
+                            *constructor_args
+                        ).data,
                     ]
 
             case CreationType.CREATE2:
-                if init_args or deployment_payable_value or initialization_payable_value:
+                if (
+                    init_args
+                    or deployment_payable_value
+                    or initialization_payable_value
+                ):
                     deployment_fn = self.contract.deployCreate2AndInit
                     args = [
                         # Initcode for contract
-                        Contract.constructor.serialize_transaction(*constructor_args).data,
+                        Contract.constructor.serialize_transaction(
+                            *constructor_args
+                        ).data,
                         # Post-deploy init args for contract
                         init_args or b"",
                         # Payable values to use for deployment and initialization
@@ -251,7 +267,9 @@ class CreateX(ManagerAccessMixin):
                     deployment_fn = self.contract.deployCreate2
                     args = [
                         # Initcode for contract
-                        Contract.constructor.serialize_transaction(*constructor_args).data,
+                        Contract.constructor.serialize_transaction(
+                            *constructor_args
+                        ).data,
                     ]
 
         if refund is not None:
