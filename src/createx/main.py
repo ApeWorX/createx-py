@@ -206,6 +206,7 @@ class CreateX(ManagerAccessMixin):
         initialization_payable_value: int = 0,
         sender_protection: bool = True,
         redeploy_protection: bool = True,
+        init_args: bytes | None = None,
         **txn_args,
     ) -> "ContractInstance":
         if not isinstance(create_type, CreationType):
@@ -216,13 +217,13 @@ class CreateX(ManagerAccessMixin):
                 if salt is not None:
                     raise RuntimeError("`salt=` is not supported for CREATE")
 
-                if deployment_payable_value or initialization_payable_value:
+                if init_args or deployment_payable_value or initialization_payable_value:
                     deployment_fn = self.contract.deployCreateAndInit
                     args = [
                         # Initcode for contract
                         Contract.constructor.serialize_transaction(*constructor_args).data,
                         # Post-deploy init args for contract
-                        b"",
+                        init_args or b"",
                         # Payable values to use for deployment and initialization
                         (deployment_payable_value, initialization_payable_value),
                     ]
@@ -235,13 +236,13 @@ class CreateX(ManagerAccessMixin):
                     ]
 
             case CreationType.CREATE2:
-                if deployment_payable_value or initialization_payable_value:
+                if init_args or deployment_payable_value or initialization_payable_value:
                     deployment_fn = self.contract.deployCreate2AndInit
                     args = [
                         # Initcode for contract
                         Contract.constructor.serialize_transaction(*constructor_args).data,
                         # Post-deploy init args for contract
-                        b"",
+                        init_args or b"",
                         # Payable values to use for deployment and initialization
                         (deployment_payable_value, initialization_payable_value),
                     ]
