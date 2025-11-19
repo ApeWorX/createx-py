@@ -150,6 +150,7 @@ class CreateX(ManagerAccessMixin):
     def compute_address(
         self,
         Contract: "ContractContainer",
+        *constructor_args,
         create_type: CreationType | str = CreationType.CREATE2,
         nonce: int | None = None,
         salt: HexBytes | str | None = None,
@@ -188,7 +189,9 @@ class CreateX(ManagerAccessMixin):
                         redeploy_protection=redeploy_protection,
                     ),
                     keccak(  # initcode hash
-                        Contract.contract_type.deployment_bytecode.to_bytes()
+                        Contract.constructor.serialize_transaction(
+                            *constructor_args
+                        ).data
                     ),
                 ]
 
@@ -197,7 +200,7 @@ class CreateX(ManagerAccessMixin):
     def deploy(
         self,
         Contract: "ContractContainer",
-        *init_args,
+        *constructor_args,
         create_type: CreationType | str = CreationType.CREATE2,
         salt: HexBytes | str | None = None,
         refund: AddressType | str | None = None,
@@ -205,50 +208,69 @@ class CreateX(ManagerAccessMixin):
         initialization_payable_value: int = 0,
         sender_protection: bool = True,
         redeploy_protection: bool = True,
+        init_args: bytes | None = None,
         **txn_args,
     ) -> "ContractInstance":
         if not isinstance(create_type, CreationType):
             create_type = CreationType(create_type)
 
-        match create_type, len(init_args):
-            case CreationType.CREATE, 0:
+        match create_type:
+            case CreationType.CREATE:
                 if salt is not None:
                     raise RuntimeError("`salt=` is not supported for CREATE")
 
-                deployment_fn = self.contract.deployCreate
-                args = [
-                    # Initcode for contract
-                    Contract.contract_type.deployment_bytecode.to_bytes(),
-                ]
+                if (
+                    init_args
+                    or deployment_payable_value
+                    or initialization_payable_value
+                ):
+                    deployment_fn = self.contract.deployCreateAndInit
+                    args = [
+                        # Initcode for contract
+                        Contract.constructor.serialize_transaction(
+                            *constructor_args
+                        ).data,
+                        # Post-deploy init args for contract
+                        init_args or b"",
+                        # Payable values to use for deployment and initialization
+                        (deployment_payable_value, initialization_payable_value),
+                    ]
 
-            case CreationType.CREATE, _:
-                deployment_fn = self.contract.deployCreateAndInit
-                args = [
-                    # Initcode for contract
-                    Contract.contract_type.deployment_bytecode.to_bytes(),
-                    # Init args for contract
-                    Contract.constructor.encode_input(*init_args),
-                    # Payable values to use for deployment and initialization
-                    (deployment_payable_value, initialization_payable_value),
-                ]
+                else:
+                    deployment_fn = self.contract.deployCreate
+                    args = [
+                        # Initcode for contract
+                        Contract.constructor.serialize_transaction(
+                            *constructor_args
+                        ).data,
+                    ]
 
-            case CreationType.CREATE2, 0:
-                deployment_fn = self.contract.deployCreate2
-                args = [
-                    # Initcode for contract
-                    Contract.contract_type.deployment_bytecode.to_bytes(),
-                ]
+            case CreationType.CREATE2:
+                if (
+                    init_args
+                    or deployment_payable_value
+                    or initialization_payable_value
+                ):
+                    deployment_fn = self.contract.deployCreate2AndInit
+                    args = [
+                        # Initcode for contract
+                        Contract.constructor.serialize_transaction(
+                            *constructor_args
+                        ).data,
+                        # Post-deploy init args for contract
+                        init_args or b"",
+                        # Payable values to use for deployment and initialization
+                        (deployment_payable_value, initialization_payable_value),
+                    ]
 
-            case CreationType.CREATE2, _:
-                deployment_fn = self.contract.deployCreate2AndInit
-                args = [
-                    # Initcode for contract
-                    Contract.contract_type.deployment_bytecode.to_bytes(),
-                    # Init args for contract
-                    Contract.constructor.encode_input(*init_args),
-                    # Payable values to use for deployment and initialization
-                    (deployment_payable_value, initialization_payable_value),
-                ]
+                else:
+                    deployment_fn = self.contract.deployCreate2
+                    args = [
+                        # Initcode for contract
+                        Contract.constructor.serialize_transaction(
+                            *constructor_args
+                        ).data,
+                    ]
 
         if refund is not None:
             # If applicable, last Arg becomes Refund address in all cases
