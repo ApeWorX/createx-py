@@ -73,6 +73,7 @@ def convert_salt(ctx, param, value):
 @click.option("--sender-protection/--no-sender-protection", default=True)
 @click.option("--redeploy-protection/--no-redeploy-protection", default=True)
 @click.argument("contract_type", metavar="CONTRACT", callback=get_contract_type)
+@click.argument("constructor_args", metavar="ARGS", nargs=-1)
 def address(
     create_type: CreationType,
     nonce: int | None,
@@ -81,6 +82,7 @@ def address(
     sender_protection: bool,
     redeploy_protection: bool,
     contract_type: "ContractContainer",
+    constructor_args: list[str],
 ):
     """Compute the address of a contract deployed w/ CreateX"""
 
@@ -93,10 +95,12 @@ def address(
     click.echo(
         createx.compute_address(
             contract_type,
+            *constructor_args,
             create_type=create_type,
             nonce=nonce,
             salt=salt,
             sender_address=(deployer.address if sender_protection else ZERO_ADDRESS),
+            sender_protection=sender_protection,
             redeploy_protection=redeploy_protection,
         )
     )
@@ -125,6 +129,7 @@ def address(
 @click.option("--sender-protection/--no-sender-protection", default=True)
 @click.option("--redeploy-protection/--no-redeploy-protection", default=True)
 @click.argument("contract_type", metavar="CONTRACT", callback=get_contract_type)
+@click.argument("constructor_args", metavar="ARGS", nargs=-1)
 def mine(
     create_type: CreationType,
     leading_zeros: int | None,
@@ -133,6 +138,7 @@ def mine(
     sender_protection: bool,
     redeploy_protection: bool,
     contract_type: "ContractContainer",
+    constructor_args: list[str],
 ):
     """Mine for an address meeting conditions when deployed w/ CreateX"""
 
@@ -165,6 +171,7 @@ def mine(
     while not conditions_met(
         address := createx.compute_address(
             contract_type,
+            *constructor_args,
             create_type=create_type,
             salt=salt,
             sender_address=(deployer.address if sender_protection else ZERO_ADDRESS),
@@ -189,6 +196,7 @@ def mine(
 @click.option("--sender-protection/--no-sender-protection", default=True)
 @click.option("--redeploy-protection/--no-redeploy-protection", default=True)
 @click.argument("contract_type", metavar="CONTRACT", callback=get_contract_type)
+@click.argument("constructor_args", metavar="ARGS", nargs=-1)
 def deploy(
     create_type: CreationType,
     salt: "HexBytes | str | None",
@@ -196,6 +204,7 @@ def deploy(
     sender_protection: bool,
     redeploy_protection: bool,
     contract_type: "ContractContainer",
+    constructor_args: list[str],
 ):
     """Deploy a contract from your project w/ CreateX"""
 
@@ -207,6 +216,7 @@ def deploy(
 
     contract = createx.deploy(
         contract_type,
+        *constructor_args,
         create_type=create_type,
         salt=salt,
         # refund=deployer,
