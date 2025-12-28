@@ -1,3 +1,4 @@
+from collections.abc import Callable
 import random
 import warnings
 from typing import TYPE_CHECKING
@@ -120,6 +121,27 @@ def address(
     help="Number of empty bytes in front of address",
 )
 @click.option(
+    "--starts-with",
+    default=None,
+    help="Address must start with this pattern",
+)
+@click.option(
+    "--trailing-zeros",
+    default=None,
+    type=int,
+    help="Number of empty bytes in front of address",
+)
+@click.option(
+    "--ends-with",
+    default=None,
+    help="Address must end with this pattern",
+)
+@click.option(
+    "--case-sensitive/--not-case-sensitive",
+    default=False,
+    help="Whether `--starts-with`/`--ends-with` patterns are case-sensitive",
+)
+@click.option(
     "--max-iterations",
     type=int,
     default=5000,
@@ -133,6 +155,10 @@ def address(
 def mine(
     create_type: CreationType,
     leading_zeros: int | None,
+    starts_with: str | None,
+    trailing_zeros: int | None,
+    ends_with: str | None,
+    case_sensitive: bool,
     max_iterations: int,
     deployer: "AccountAPI",
     sender_protection: bool,
@@ -141,6 +167,18 @@ def mine(
     constructor_args: list[str],
 ):
     """Mine for an address meeting conditions when deployed w/ CreateX"""
+
+    if leading_zeros and starts_with:
+        click.UsageError(
+            "Cannot use both `--leading-zeros` and `--starts-with` together."
+        )
+
+    elif trailing_zeros and ends_with:
+        click.UsageError(
+            "Cannot use both `--trailing-zeros` and `--ends-with` together."
+        )
+
+    conditions: list[Callable[["AddressType"], bool]] = []
 
     if leading_zeros is not None:
         if leading_zeros <= 0:
@@ -152,11 +190,77 @@ def mine(
         elif leading_zeros > 8:
             warnings.warn("`--leading-zeros` greater than 8 will likely not converge.")
 
-        def conditions_met(address: "AddressType"):
+        def has_enough_leading_zeros(address: "AddressType"):
             return max(to_canonical_address(address)[:leading_zeros]) == 0
 
-    else:
-        raise click.UsageError("Must use one of: --leading-zeros")
+        conditions.append(has_enough_leading_zeros)
+
+    if starts_with is not None:
+        if not set(starts_with) <= set("0123456789AaBbCcDdEeFf"):
+            raise click.BadOptionUsage(
+                option_name="starts_with",
+                message="Must be valid hex",
+            )
+
+        elif (pattern_size := len(starts_with)) > 8:
+            warnings.warn(
+                "`--starts-with` pattern size greater than 8 will likely not converge."
+            )
+
+        def starts_with_pattern(address: "AddressType"):
+            start = address.replace("0x", "")[:pattern_size]
+            if case_sensitive:
+                return start == starts_with
+
+            else:
+                return start.lower() == starts_with
+
+        conditions.append(starts_with_pattern)
+
+    if trailing_zeros is not None:
+        if trailing_zeros <= 0:
+            raise click.BadOptionUsage(
+                option_name="trailing_zeros",
+                message="Cannot be less than 1",
+            )
+
+        elif trailing_zeros > 8:
+            warnings.warn("`--trailing-zeros` greater than 8 will likely not converge.")
+
+        def has_enough_trailing_zeros(address: "AddressType"):
+            return max(to_canonical_address(address)[-trailing_zeros:]) == 0
+
+        conditions.append(has_enough_trailing_zeros)
+
+    if ends_with is not None:
+        if not set(ends_with) <= set("0123456789AaBbCcDdEeFf"):
+            raise click.BadOptionUsage(
+                option_name="ends_with",
+                message="Must be valid hex",
+            )
+
+        elif (pattern_size := len(ends_with)) > 8:
+            warnings.warn(
+                "`--ends-with` pattern size greater than 8 will likely not converge."
+            )
+
+        def ends_with_pattern(address: "AddressType"):
+            end = address[-pattern_size:]
+            if case_sensitive:
+                return end == ends_with
+
+            else:
+                return end.lower() == ends_with
+
+        conditions.append(ends_with_pattern)
+
+    if not conditions:
+        raise click.UsageError(
+            "Must use one of: --leading-zeros, --trailing-zeros, --starts-with, --ends-with"
+        )
+
+    def conditions_met(address: "AddressType"):
+        return all(cond(address) for cond in conditions)
 
     try:
         createx = CreateX()
