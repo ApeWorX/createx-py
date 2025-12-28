@@ -175,11 +175,14 @@ def mine(
             create_type=create_type,
             salt=salt,
             sender_address=(deployer.address if sender_protection else ZERO_ADDRESS),
+            sender_protection=sender_protection,
             redeploy_protection=redeploy_protection,
         )
     ):
         if iterations >= max_iterations:
-            raise RuntimeError(f"Could not find solution in {iterations} iterations.")
+            raise click.UsageError(
+                f"Could not find solution in {iterations} iterations."
+            )
 
         salt = to_canonical_address(address)[:11]
         iterations += 1
