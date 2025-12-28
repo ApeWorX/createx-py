@@ -180,7 +180,9 @@ def mine(
         )
     ):
         if iterations >= max_iterations:
-            raise RuntimeError(f"Could not find solution in {iterations} iterations.")
+            raise click.UsageError(
+                f"Could not find solution in {iterations} iterations."
+            )
 
         salt = to_canonical_address(address)[:11]
         iterations += 1
