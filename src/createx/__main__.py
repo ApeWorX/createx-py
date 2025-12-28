@@ -175,6 +175,7 @@ def mine(
             create_type=create_type,
             salt=salt,
             sender_address=(deployer.address if sender_protection else ZERO_ADDRESS),
+            sender_protection=sender_protection,
             redeploy_protection=redeploy_protection,
         )
     ):
